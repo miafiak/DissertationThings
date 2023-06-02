@@ -1,0 +1,13 @@
+setwd("M:/dissertation/RAllTries")
+
+library(raster)
+library(sf)
+library(tidyverse)
+library(cowplot)
+library(spocc)
+library(rgdal)
+library(fpc)
+library(maptools)
+library(mapview)
+#library(osmar)
+library(osmdata)
