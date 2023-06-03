@@ -11,3 +11,16 @@ library(maptools)
 library(mapview)
 #library(osmar)
 library(osmdata)
+
+
+Useful to check whether there is NAs in your things: 
+
+# Check for NA values
+has_na <- any(is.na(values(raster_data)))
+
+if (has_na) {
+  print("NA values are present in the raster.")
+} else {
+  print("No NA values found in the raster.")
+}
+
