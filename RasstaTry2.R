@@ -16,6 +16,8 @@ library(ggmap)
 library(kohonen)
 library(terra)
 library(rassta)
+#additional comment to commit to GitHub
+
 
 #using the terra package to load in the raster datasets
 eleva.tif <- rast("data/elevation.tif")
