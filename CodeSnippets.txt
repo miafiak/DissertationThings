@@ -38,3 +38,11 @@ count <- sum(values == target_value)
 
 # Print the count
 print(count)
+
+ssh -X stream
+
+to install the Geointerpolation package:
+
+install.packages("remotes")
+remotes::install_github("MariekeDirk/GeoInterpolation")
+library(GeoInterpolation)

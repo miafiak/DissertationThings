@@ -1,4 +1,4 @@
-setwd("M:/dissertation/RAllTries")
+setwd("M:/dissertation/DissertationThings")
 library(terra)
 library(mclust)
 library(sf)
@@ -66,11 +66,13 @@ names(foc.ele) <- ("elevation")
 #library(raster)
 stack1 <- (c(foc.ele, resamp.pop, resamp.lc))
 
+som <- rasterSOM(stack1, xdim=3, ydim= 5, rlen = 1000, alpha = 1)
+
 #supersom with Rassta pray for me
-set.seed(999)
-gapsom <- som_gap(stack1, K.max = 50)
+#set.seed(999)
+#gapsom <- som_gap(stack1, K.max = 50)
 
-pamsom <- som_pam(ref.rast = stack1, kohsom = gapsom$SOM, k = gapsom$Kopt)
+#pamsom <- som_pam(ref.rast = stack1, kohsom = gapsom$SOM, k = gapsom$Kopt)
 
-if(interactive()){plot(pamsom$sompam.rast)}
+#if(interactive()){plot(pamsom$sompam.rast)}
 
