@@ -16,13 +16,13 @@ library(ggmap)
 library(kohonen)
 library(terra)
 library(rassta)
-#library("GeoInterpolation")
 #additional comment to commit to GitHub
 
 
 #using the terra package to load in the raster datasets
 eleva.tif <- rast("Data/Elevation.tif")
 pop.tif <- rast("Data/ken_general_2020.tif")
+
 
 lc.forest <- rast("Data/fractional_cover_lc100/AllForestTypes.tif")
 lc.bare <- rast("Data/fractional_cover_lc100/Bare-SparseVegetation.tif")
@@ -33,7 +33,7 @@ lc.shrubs <- rast("Data/fractional_cover_lc100/Shrubs.tif")
 lc.urban <- rast("Data/fractional_cover_lc100/UrbanBuiltUp.tif")
 lc.water <- rast("Data/fractional_cover_lc100/Water.tif")
 
-#Stack all landcovers into one:
+#Stack all landcovers into one (they do not need any normalisation, they are only 1 or 0:
 lc.stack <- c(lc.forest, lc.bare, lc.crops, lc.herb.veg, lc.herb.wet, lc.shrubs, lc.urban, lc.water)
 
 #read in the rectangle
@@ -43,47 +43,58 @@ rectangle <-st_read("Data/rectangle.shp")
 eleva.rec.tif <- terra::crop(eleva.tif, rectangle)
 pop.rec.tif <- crop(pop.tif, rectangle)
 
-#Create new NA data, assuming that the population in the areas with No Data is 0 (bold assumption but otherwise hard)
-new_value <- 0 
-pop.rec.tif[is.na(pop.rec.tif)] <- new_value
-resamp.pop <- resample(pop.rec.tif, eleva.rec.tif)
-
 #normalize population and elevation here
-popnx <- minmax(resamp.pop)
-norm.pop <- (resamp.pop- popnx [1,]) / (popnx [2,] - popnx [1,])
+popnx <- minmax(pop.rec.tif)
+norm.pop <- (pop.rec.tif - popnx [1,]) / (popnx [2,] - popnx [1,])
 
 elnx <- minmax(eleva.rec.tif)
 norm.ele <- (eleva.rec.tif - elnx [1,])/ (elnx[2,] - elnx [1,])
-#crop the stack to the extent of the rectangle:
 
+#crop the stack to the extent of the rectangle:
 lc.rec <- terra::crop(lc.stack, rectangle)
 
 
-
+#Create new NA data, assuming that the population in the areas with No Data is 0 (bold assumption but otherwise hard)
+#new_value <- 0 
+#pop.rec.tif[is.na(pop.rec.tif)] <- new_value
 
 #resample data so I can combine them (this leads to aggregation issues!)
-#resamp.pop<- resample(norm.pop, eleva.rec.tif)
+resamp.pop<- resample(norm.pop, eleva.rec.tif)
 resamp.lc <- resample(lc.rec, eleva.rec.tif)
 
 #omit NAs by creating a inbetween thing of them
-foc.ele <- focal(norm.ele)
+#foc.ele <- focal(eleva.rec.tif)
 
 #Renaming the layer so it becomes identifiable again
 #names(foc.ele) <- ("elevation")
 
-#Trying to do some stratification before so I can use it in the SOM
-strat.units <- strata(cu.rast = resamp.lc)
+#library(raster)
+stack1 <- (c(norm.ele, resamp.pop, resamp.lc))
 
-stack1 <- (c(resamp.pop, resamp.lc))
-som_grid <- somgrid(xdim = 6, ydim= 6, topo = "hexagonal")
 #supersom with Rassta pray for me
-set.seed(999)
-#som1 <- som(stack1, grid = somgrid(5,5, topo = "hexagonal"))
-gapsom <- som_gap(stack1, xdim = 5, ydim = 5, rlen = 100, K.max = 20)
 
-pamsom <- som_pam(ref.rast = stack1, kohsom = gapsom$SOM, k = gapsom$Kopt)
+dfstack1 <- terra::as.matrix(stack1)
+#dfstack2 <- terra::as.data.frame(stack1, xy= TRUE) (this doesn't work because it needs to be a matrix not df, so no)
 
-if(interactive()){plot(pamsom$sompam.rast)}
+#Creating the SOM grid
+som_grid <- somgrid(xdim = 6, ydim= 6, topo = "hexagonal")
+#grid2 <- somgrid(topo = "hexagonal")
+
+#Create the Som Object
+som_model <- supersom(data= dfstack1, grid = som_grid, keep.data = TRUE)
+
+plot(som_model)
+
+#Getting the WCSS metric for k means, this inidicates every datapoints distance to nodes
+#Using this to indicate the ideal number of clusters
+codes <- getCodes(som_model)
+wcss <- (nrow(codes)-1)* sum(apply(codes, 2, var))
+for (i in 2:15) wcss[i] <- sum(kmeans(codes, centers = i)$withinss)
+
+plot(1:15, wcss, type = "b", xlab = "Number of Clusters",
+     ylab= "Within groups of squares", main= "WCSS")
 
 
 
+
+#pamsomter <- som_pam(ref.rast = eleva.rec.tif, kohsom = som_model$SOM, k = 25)
