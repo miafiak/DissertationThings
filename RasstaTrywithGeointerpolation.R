@@ -66,7 +66,7 @@ names(foc.ele) <- ("elevation")
 #library(raster)
 stack1 <- (c(foc.ele, resamp.pop, resamp.lc))
 
-som <- rasterSOM(stack1, xdim=3, ydim= 5, rlen = 1000, alpha = 1)
+som <- rasterSOM(stack1, xdim=5, ydim= 5)
 
 #supersom with Rassta pray for me
 #set.seed(999)
@@ -75,4 +75,9 @@ som <- rasterSOM(stack1, xdim=3, ydim= 5, rlen = 1000, alpha = 1)
 #pamsom <- som_pam(ref.rast = stack1, kohsom = gapsom$SOM, k = gapsom$Kopt)
 
 #if(interactive()){plot(pamsom$sompam.rast)}
+
+# Assuming your raster stack is stored as 'stack1'
+# Assuming you have already loaded the required packages
+
+
 

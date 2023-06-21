@@ -42,7 +42,33 @@ print(count)
 ssh -X stream
 
 to install the Geointerpolation package:
-
+  
 install.packages("remotes")
 remotes::install_github("MariekeDirk/GeoInterpolation")
 library(GeoInterpolation)
+
+https://era.ed.ac.uk/bitstream/handle/1842/37612/KR%c3%b8nning_MScGIS_ThesisFinal.pdf?sequence=1&isAllowed=y
+
+
+What I did in ArcGIS:
+
+arcpy.management.BuildRasterAttributeTable("PROBAV_LC100_global_v3.0.1_2019-nrt_Discrete-Classification-map_EPSG-4326.tif", "NONE", "NONE") (create attribute table for Landcover)
+
+Convert ADM2 boundaries to raster:
+arcpy.conversion.PolygonToRaster("ken_admbnda_adm2_iebc_20191031", "ADM2_PCODE", r"\\students.geos.ed.ac.uk\s2451001\dissertation\DissertationThings\Data\RasterAdm2", "MAXIMUM_COMBINED_AREA", "NONE", r"\\students.geos.ed.ac.uk\s2451001\dissertation\DissertationThings\Data\LCwAttribute.tif", "BUILD")
+
+Combine LC with Attribute table and boundaries:
+
+out_raster = arcpy.sa.Combine("RasterAdm2;LCwAttribute.tif"); out_raster.save(r"\\students.geos.ed.ac.uk\s2451001\dissertation\DissertationThings\Data\LCAttr+Adm")
+
+Add the admin boundary raster to the raster stack?
+
+otherwise make it into point data? Check Chat GPT
+
+  
+
+
+
+
+
+

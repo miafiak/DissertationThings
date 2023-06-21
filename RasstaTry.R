@@ -60,8 +60,6 @@ names(stack1) <- c("elevation", "population", "bare", "landcover")
 #supersom with Rassta pray for me
 set.seed(9)
 gapsom <- som_gap(stack1, K.max = 25)
-
-
 pamsom <- som_pam(ref.rast = stack1, kohsom = gapsom$SOM, k = gapsom$Kopt)
 
 if(interactive()){plot(pamsom$sompam.rast)}
