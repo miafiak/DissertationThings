@@ -9,6 +9,9 @@ library(grid)
 library(viridis)
 library(dplyr)
 library(sf)
+library(cluster)
+library(fpc)
+#library(factoextra)
 
 #read in the admin boundary
 
@@ -106,125 +109,34 @@ names(df) <- c("ADM2_EN", "Forest", "Bare", "Crop", "Herbaceous Vegetation",
                "Herbaceous Wetland", "Shrubs", "Urban", "Water", "Elevation",
                "Population", "Travel Time", "Cattle", "Chicken", "Ducks",
                "Goats", "Horses", "Pigs", "Sheep")
-#create a new coloumn with only the numbers of the references:
-df$Code <- gsub("[A-Za-z]{2}", "", df$ADM2_EN)
-df$Code <- as.numeric(df$Code)
+#library(mclust)
+#fit<- Mclust(df)
+#summary(fit)
 
-# Select all numeric columns that aren't normalized yet
+#WSS is the Sum distance within the centroids 
+#Since the K-means algorithm's goal is to keep the size of each cluster as small as possible, 
+#the small wss indicates that every data point is close to its nearest centroids, 
+#or say the model has returned good results from (https://towardsdatascience.com/k-means-clustering-in-r-feb4a4740aa)
 
-columns_to_normalize <- 10:19
+wss <- NULL
+#i Have to set seed
+set.seed(1)
+for (i in 1:19) {
+  fit = kmeans (select(df, 2:19), centers = 1)
+  wss = c(wss, fit$tot.withinss)
+}
+plot(1:19, wss, type= "o")  
 
-# Normalize the selected columns
-df_norm <- df
-df_norm[, columns_to_normalize] <- apply(df_norm[, columns_to_normalize], 2, function(x) x / max(x))
+fit <- kmeans(select(df, 2:19), 10)
+plotcluster(select(df,2:19), fit$cluster, pointsbyclvecd = FALSE)
 
 
-#Get rid of the codes:
-data_train <- select(df_norm, 2:19)
-#check whether I neezoned the scale or not, what difference does it make
-data_train_mtrx <- as.matrix.data.frame(scale(data_train))
-colnames(data_train_mtrx) <- (c("Forest", "Bare", "Crop", "Herbaceous Vegetation",
-                                  "Herbaceous Wetland", "Shrubs", "Urban",
-                                "Water", "Elevation", "Population", "Travel Time", "Cattle", "Chicken", "Ducks",
-                                "Goats", "Horses", "Pigs", "Sheep" ))
+wss2 <- (nrow(df)-1)*sum(apply(df, 1, var))
+  for (i in 2:25) wss [i] <- sum(kmeans(select(df, 2:19), centers = i)$withinss)
+plot(wss2)
 
-som_grid <- somgrid(xdim = 10, ydim = 10, topo = "hexagonal")
-
-som_model <- supersom(data_train_mtrx, grid = som_grid, rlen = 10000, keep.data = TRUE)
-
-#show the WCSS metric for different clustering sizes
-# Can be used as a rough indicator of the ideal number of clusters
-
-mydata <- getCodes(som_model)
-wss <- (nrow(mydata)-1)*sum(apply(mydata, 2, var))
-for (i in 2:10) wss [i] <- sum(kmeans(mydata, centers = i)$withinss)
-
-#form clusters on grid
-##use hierarchical clustering to cluster the codebook vectors
-som_cluster <- cutree(hclust(dist(getCodes(som_model))), 10)
-plot(som_model, type= "codes", bgcol= som_cluster, main= "Clusters")
-
-cluster_details <- data.frame(ADM2_EN=df$ADM2_EN, 
-                              cluster= som_cluster[som_model$unit.classif])
-#mappoints <- merge(zone, cluster_details, by= "ADM2_PCODE")
-
-final = zone
-cluster_det_srt <- arrange(cluster_details,(cluster_details$ADM2_PCODE))
-#export it so I can bring them together in Arc:
-write.csv2(cluster_det_srt, file = "Data/clustersadm2.csv")
-#final[] = cluster_details$ADM2_PCODE[match(final[], cluster_details$cluster, nomatch = 100)]
-#final[]= cluster_details$ADM2_PCODE[match(final[], cluster_details$cluster)]
-#final[] = cluster_details$cluster[match(final[], cluster_details$ADM2_PCODE)]
-
-plot(final)
-# to let me know the code is finished
-beep(1)
-#Aftr defining a color palette for each variable by using the RColorBrewer package, we are running a loop to plot the mean value of the different
-#ariables for each cluster.
 library(RColorBrewer)
 
-cols <- c(brewer.pal(18, "Spectral"), brewer.pal(11, "BrBG"))
+cols <- c(brewer.pal(18, "Spectral"), brewer.pal(18, "BrBG"))
 
-#for (i in 1:som_model$codes){
- # DF <- as.data.frame(colMeans(som_model[som_model$codes ==i, 1:length(som_model[1,])-1]))
-  #DF <- data.frame(rownames(DF),DF[,1]); DF[,2] <- DF[,2] +1; DF
-  #names(DF) <- c('variable', 'value')
-  #DF$variable <- factor(DF$variable, as.character(DF$variable))
-#}
-#fuck it were creating a new df
-cluster <- merge(df_norm, cluster_details, by= 'ADM2_EN',all=FALSE)
-#now I need to extract all the clusters with one value
-#unique_clusters <- unique(cluster$cluster)
-#split df into smaller dfs
-singledf <- split(cluster, cluster$cluster)
-
-# Create a list to store the plots
-plot_list <- list()
-
-# Loop over the values of 'i'
-for (i in 1:10) {
-  # Subset the cluster data frame for the desired cluster
-  subset_df <- cluster[cluster$cluster == i, ]
-  
-  # Filter the numeric columns for mean calculation
-  numeric_cols <- sapply(subset_df, is.numeric)
-  mean_values <- colMeans(subset_df[, numeric_cols])
-  
-  # Create a data frame with variable and value columns
-  DF <- data.frame(variable = names(mean_values), value = mean_values)
-  DF[, 2] <- DF[, 2] + 1
-  DF$variable <- factor(DF$variable, levels = as.character(DF$variable))
-  
-  # Create the plot
-  plot <- ggplot(DF, aes(variable, value, fill = variable)) +
-    geom_bar(width = 1, stat = "identity", color = "white") +
-    ylim(0, 1.5) +
-    scale_fill_manual(values = cols) +
-    theme_gray() +
-    theme(
-      axis.ticks = element_blank(),
-      axis.text = element_blank(),
-      axis.title = element_blank(),
-      axis.line = element_blank()
-    ) +
-    labs(title = paste("Cluster",  i))
-  
-  nam <- paste('p', i, sep = '')
-  plot_list[[nam]] <- plot + coord_polar()
-}
-
-# Accessing the individual plots
-p1 <- plot_list$p1
-p2 <- plot_list$p2
-# and so on...
-
-# Print or further manipulate the individual plots as desired
-print(p1)
-print(p2)
-
-for (i in 1:10) {
-  plot_name <- paste("p", i, sep = "")
-  plot <- plot_list[[plot_name]]
-  print(plot)
-}
-
+for (for i in 1:)
