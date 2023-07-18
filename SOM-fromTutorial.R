@@ -9,14 +9,18 @@ library(grid)
 library(viridis)
 library(dplyr)
 library(sf)
+library(ggplot2)
+library(ggspatial)
+
+
 
 #read in the admin boundary
-
 adm2.sp <- st_read("Data/ken_admbnda_adm2_iebc_20191031.shp")
 
 #using the terra package to load in the raster datasets
 eleva.tif <- rast("Data/Elevation.tif")
 pop.tif <- rast("Data/ken_general_2020.tif")
+
 #Landcover read in
 lc.gen <- rast("Data/PROBAV_LC100_global_v3.0.1_2019-nrt_Discrete-Classification-map_EPSG-4326.tif")
 
@@ -128,7 +132,7 @@ colnames(data_train_mtrx) <- (c("Forest", "Bare", "Crop", "Herbaceous Vegetation
                                 "Water", "Elevation", "Population", "Travel Time", "Cattle", "Chicken", "Ducks",
                                 "Goats", "Horses", "Pigs", "Sheep" ))
 
-som_grid <- somgrid(xdim = 10, ydim = 10, topo = "hexagonal")
+som_grid <- somgrid(xdim = 5, ydim = 5, topo = "hexagonal")
 
 som_model <- supersom(data_train_mtrx, grid = som_grid, rlen = 10000, keep.data = TRUE)
 
@@ -136,12 +140,12 @@ som_model <- supersom(data_train_mtrx, grid = som_grid, rlen = 10000, keep.data 
 # Can be used as a rough indicator of the ideal number of clusters
 
 mydata <- getCodes(som_model)
-wss <- (nrow(mydata)-1)*sum(apply(mydata, 2, var))
-for (i in 2:10) wss [i] <- sum(kmeans(mydata, centers = i)$withinss)
+#wss <- (nrow(mydata)-1)*sum(apply(mydata, 2, var))
+#for (i in 2:10) wss [i] <- sum(kmeans(mydata, centers = i)$withinss)
 
 #form clusters on grid
 ##use hierarchical clustering to cluster the codebook vectors
-som_cluster <- cutree(hclust(dist(getCodes(som_model))), 10)
+som_cluster <- cutree(hclust(dist(getCodes(som_model))), 25)
 plot(som_model, type= "codes", bgcol= som_cluster, main= "Clusters")
 
 cluster_details <- data.frame(ADM2_EN=df$ADM2_EN, 
@@ -152,13 +156,28 @@ final = zone
 cluster_det_srt <- arrange(cluster_details,(cluster_details$ADM2_PCODE))
 #export it so I can bring them together in Arc:
 write.csv2(cluster_det_srt, file = "Data/clustersadm2.csv")
-#final[] = cluster_details$ADM2_PCODE[match(final[], cluster_details$cluster, nomatch = 100)]
-#final[]= cluster_details$ADM2_PCODE[match(final[], cluster_details$cluster)]
-#final[] = cluster_details$cluster[match(final[], cluster_details$ADM2_PCODE)]
+# Create a spatial join of the clusters and the map
+spatialcluster <- merge (adm2.sp, cluster_det_srt, 
+                                by.x= "ADM2_PCODE", by.y= "ADM2_EN")
+#for easier mapping excluse not needed layers:
+filtercluster <- spatialcluster['cluster']
 
-plot(final)
-# to let me know the code is finished
-beep(1)
+#register_google(key = "", write = TRUE)
+#get basemap
+bbox <- st_bbox(filtercluster)
+##tiles <- OpenStreetMap::openmap(bbox = bbox, type = "osm")
+
+#map <- ggmap(basemap) +
+ # geom_sf(data = filtercluster) +
+  #annotation_scale(location = "bl") +
+  #annotation_north_arrow(location = "tl", style = north_arrow_fancy_orienteering)
+
+#print(map)
+
+
+#plot it
+plot(spatialcluster['cluster'])
+
 #Aftr defining a color palette for each variable by using the RColorBrewer package, we are running a loop to plot the mean value of the different
 #ariables for each cluster.
 library(RColorBrewer)
@@ -182,7 +201,7 @@ singledf <- split(cluster, cluster$cluster)
 plot_list <- list()
 
 # Loop over the values of 'i'
-for (i in 1:10) {
+for (i in 1:25) {
   # Subset the cluster data frame for the desired cluster
   subset_df <- cluster[cluster$cluster == i, ]
   
@@ -209,6 +228,8 @@ for (i in 1:10) {
     ) +
     labs(title = paste("Cluster",  i))
   
+  
+  
   nam <- paste('p', i, sep = '')
   plot_list[[nam]] <- plot + coord_polar()
 }
@@ -222,9 +243,12 @@ p2 <- plot_list$p2
 print(p1)
 print(p2)
 
-for (i in 1:10) {
+for (i in 1:25) {
   plot_name <- paste("p", i, sep = "")
   plot <- plot_list[[plot_name]]
   print(plot)
+  savePlot(filename = paste0("Cluster", i, sep="", type="png"))
 }
+
+
 
