@@ -247,7 +247,7 @@ for (i in 1:25) {
   plot_name <- paste("p", i, sep = "")
   plot <- plot_list[[plot_name]]
   print(plot)
-  savePlot(filename = paste0("Cluster", i, sep="", type="png"))
+  #savePlot(filename = paste0("Cluster", i, sep="", type="png"))
 }
 
 
