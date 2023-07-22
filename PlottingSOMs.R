@@ -9,17 +9,18 @@ library(grid)
 library(viridis)
 library(dplyr)
 library(sf)
-library(cluster)
-library(fpc)
-#library(factoextra)
+library(ggplot2)
+library(ggspatial)
+
+
 
 #read in the admin boundary
-
 adm2.sp <- st_read("Data/ken_admbnda_adm2_iebc_20191031.shp")
 
 #using the terra package to load in the raster datasets
 eleva.tif <- rast("Data/Elevation.tif")
 pop.tif <- rast("Data/ken_general_2020.tif")
+
 #Landcover read in
 lc.gen <- rast("Data/PROBAV_LC100_global_v3.0.1_2019-nrt_Discrete-Classification-map_EPSG-4326.tif")
 
@@ -109,34 +110,77 @@ names(df) <- c("ADM2_EN", "Forest", "Bare", "Crop", "Herbaceous Vegetation",
                "Herbaceous Wetland", "Shrubs", "Urban", "Water", "Elevation",
                "Population", "Travel Time", "Cattle", "Chicken", "Ducks",
                "Goats", "Horses", "Pigs", "Sheep")
-library(mclust)
-fit<- Mclust(df)
-summary(fit)
+#create a new coloumn with only the numbers of the references:
+df$Code <- gsub("[A-Za-z]{2}", "", df$ADM2_EN)
+df$Code <- as.numeric(df$Code)
 
-#WSS is the Sum distance within the centroids 
-#Since the K-means algorithm's goal is to keep the size of each cluster as small as possible, 
-#the small wss indicates that every data point is close to its nearest centroids, 
-#or say the model has returned good results from (https://towardsdatascience.com/k-means-clustering-in-r-feb4a4740aa)
+csv <- read.csv2("Data/cluster2newfinal.csv", sep = ",")
 
-wss <- NULL
-#i Have to set seed
-set.seed(1)
-for (i in 1:19) {
-  fit = kmeans (select(df, 2:19), centers = 24)
-  wss = c(wss, fit$tot.withinss)
-}
-plot(1:19, wss, type= "o")  
-
-#fit <- kmeans(select(df, 2:19), 10)
-plotcluster(select(df,2:19), fit$cluster, pointsbyclvecd = FALSE)
-
-
-wss2 <- (nrow(df)-1)*sum(apply(df, 1, var))
-  for (i in 2:25) wss [i] <- sum(kmeans(select(df, 2:19), centers = i)$withinss)
-plot(wss2)
-
+cluster_details <- data.frame(ADM2_EN=df$ADM2_EN, 
+                              cluster= csv$cluster)
+cluster_det_srt <- arrange(cluster_details,(cluster_details$ADM2_PCODE))
+spatialcluster <- merge (adm2.sp, cluster_det_srt, 
+                         by.x= "ADM2_PCODE", by.y= "ADM2_EN")
 library(RColorBrewer)
 
-cols <- c(brewer.pal(18, "Spectral"), brewer.pal(18, "BrBG"))
+cols <- c(brewer.pal(18, "Spectral"), brewer.pal(11, "BrBG"))
+#fuck it were creating a new df
+cluster <- merge(df_norm, cluster_details, by= 'ADM2_EN',all=FALSE)
+#now I need to extract all the clusters with one value
 
-#for (for i in 1:)
+#split df into smaller dfs
+singledf <- split(cluster, cluster$cluster)
+
+# Create a list to store the plots
+plot_list <- list()
+
+# Loop over the values of 'i'
+for (i in 1:25) {
+  # Subset the cluster data frame for the desired cluster
+  subset_df <- cluster[cluster$cluster == i, ]
+  
+  # Filter the numeric columns for mean calculation
+  numeric_cols <- sapply(subset_df, is.numeric)
+  mean_values <- colMeans(subset_df[, numeric_cols])
+  
+  # Create a data frame with variable and value columns
+  DF <- data.frame(variable = names(mean_values), value = mean_values)
+  DF[, 2] <- DF[, 2]
+  DF$variable <- factor(DF$variable, levels = as.character(DF$variable))
+  
+  # Create the plot
+  plot <- ggplot(DF, aes(variable, value, fill = variable)) +
+    geom_bar(width = 1, stat = "identity", color = "white") +
+    ylim(0, 1.005) +
+    scale_fill_manual(values = cols) +
+    theme_gray() +
+    theme(
+      axis.ticks = element_blank(),
+      axis.text = element_blank(),
+      axis.title = element_blank(),
+      axis.line = element_blank()
+    ) +
+    labs(title = paste("Cluster",  i))
+  
+  
+  
+  nam <- paste('p', i, sep = '')
+  plot_list[[nam]] <- plot + coord_polar()
+}
+
+# Accessing the individual plots
+p1 <- plot_list$p1
+p2 <- plot_list$p2
+# and so on...
+
+# Print or further manipulate the individual plots as desired
+print(p1)
+print(p2)
+
+for (i in 1:25) {
+  plot_name <- paste("p", i, sep = "")
+  plot <- plot_list[[plot_name]]
+  print(plot)
+  ggsave(filename = paste0("Cluster", i, ".png", sep=""))
+}
+

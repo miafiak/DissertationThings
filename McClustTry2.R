@@ -109,34 +109,98 @@ names(df) <- c("ADM2_EN", "Forest", "Bare", "Crop", "Herbaceous Vegetation",
                "Herbaceous Wetland", "Shrubs", "Urban", "Water", "Elevation",
                "Population", "Travel Time", "Cattle", "Chicken", "Ducks",
                "Goats", "Horses", "Pigs", "Sheep")
-library(mclust)
-fit<- Mclust(df)
-summary(fit)
-
-#WSS is the Sum distance within the centroids 
-#Since the K-means algorithm's goal is to keep the size of each cluster as small as possible, 
-#the small wss indicates that every data point is close to its nearest centroids, 
-#or say the model has returned good results from (https://towardsdatascience.com/k-means-clustering-in-r-feb4a4740aa)
-
-wss <- NULL
-#i Have to set seed
-set.seed(1)
-for (i in 1:19) {
-  fit = kmeans (select(df, 2:19), centers = 24)
-  wss = c(wss, fit$tot.withinss)
-}
-plot(1:19, wss, type= "o")  
-
-#fit <- kmeans(select(df, 2:19), 10)
-plotcluster(select(df,2:19), fit$cluster, pointsbyclvecd = FALSE)
 
 
-wss2 <- (nrow(df)-1)*sum(apply(df, 1, var))
-  for (i in 2:25) wss [i] <- sum(kmeans(select(df, 2:19), centers = i)$withinss)
-plot(wss2)
+BICMC <- mclustBIC(df[2:19])
+summary(BICMC)
+#just because I created 24 classes earlier do the same here
+mod1 <- Mclust(df[2:19], G=25, x = BICMC)
+summary(mod1)
+ICLMC <- mclustICL(df[2:19])
 
+clusters <- data.frame(ADM2_EN=df$ADM2_EN, mod1$classification)
+clusters_srt <- arrange(clusters,(clusters$ADM2_PCODE))
+#export as csv to connect in ARcGIS
+write.csv2(clusters_srt, file = "Data/clustersaMcClust.csv")
+
+
+#Aftr defining a color palette for each variable by using the RColorBrewer package, we are running a loop to plot the mean value of the different
+#ariables for each cluster.
 library(RColorBrewer)
 
-cols <- c(brewer.pal(18, "Spectral"), brewer.pal(18, "BrBG"))
+cols <- c(brewer.pal(18, "Spectral"), brewer.pal(11, "BrBG"))
 
-#for (for i in 1:)
+#Select all numeric columns that aren't normalized yet
+
+columns_to_normalize <- 10:19
+
+# Normalize the selected columns
+df_norm <- df
+df_norm[, columns_to_normalize] <- apply(df_norm[, columns_to_normalize], 2, function(x) x / max(x))
+
+
+#fuck it were creating a new df
+cluster <- merge(df_norm, clusters, by= 'ADM2_EN',all=TRUE)
+#now I need to extract all the clusters with one value
+
+#split df into smaller dfs
+singledf <- split(cluster, cluster$mod1.classification)
+
+# Create a list to store the plots
+plot_list <- list()
+
+# Loop over the values of 'i'
+for (i in 1:25) {
+  # Subset the cluster data frame for the desired cluster
+  subset_df <- cluster[cluster$mod1.classification == i, ]
+  
+  # Filter the numeric columns for mean calculation
+  numeric_cols <- sapply(subset_df, is.numeric)
+  mean_values <- colMeans(subset_df[, numeric_cols])
+  
+  # Create a data frame with variable and value columns
+  DF <- data.frame(variable = names(mean_values), value = mean_values)
+  DF[, 2] <- DF[, 2] + 1
+  DF$variable <- factor(DF$variable, levels = as.character(DF$variable))
+  
+  # Create the plot
+  plot <- ggplot(DF, aes(variable, value, fill = variable)) +
+    geom_bar(width = 1, stat = "identity", color = "white") +
+    ylim(0, 1.5) +
+    scale_fill_manual(values = cols) +
+    theme_gray() +
+    theme(
+      axis.ticks = element_blank(),
+      axis.text = element_blank(),
+      axis.title = element_blank(),
+      axis.line = element_blank()
+    ) +
+    labs(title = paste("Cluster",  i))
+  
+  
+  
+  nam <- paste('p', i, sep = '')
+  plot_list[[nam]] <- plot + coord_polar()
+}
+
+# Accessing the individual plots
+p1 <- plot_list$p1
+p2 <- plot_list$p2
+# and so on...
+
+# Print or further manipulate the individual plots as desired
+print(p1)
+print(p2)
+
+for (i in 1:25) {
+  plot_name <- paste("p", i, sep = "")
+  plot <- plot_list[[plot_name]]
+  print(plot)
+  #savePlot(filename = paste0("Cluster", i, sep="", type="png"))
+}
+
+
+
+
+
+

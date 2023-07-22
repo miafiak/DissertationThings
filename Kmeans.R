@@ -12,6 +12,7 @@ library(sf)
 library(cluster)
 library(fpc)
 #library(factoextra)
+library(cluster)
 
 #read in the admin boundary
 
@@ -109,34 +110,38 @@ names(df) <- c("ADM2_EN", "Forest", "Bare", "Crop", "Herbaceous Vegetation",
                "Herbaceous Wetland", "Shrubs", "Urban", "Water", "Elevation",
                "Population", "Travel Time", "Cattle", "Chicken", "Ducks",
                "Goats", "Horses", "Pigs", "Sheep")
-library(mclust)
-fit<- Mclust(df)
-summary(fit)
 
-#WSS is the Sum distance within the centroids 
-#Since the K-means algorithm's goal is to keep the size of each cluster as small as possible, 
-#the small wss indicates that every data point is close to its nearest centroids, 
-#or say the model has returned good results from (https://towardsdatascience.com/k-means-clustering-in-r-feb4a4740aa)
 
-wss <- NULL
-#i Have to set seed
-set.seed(1)
-for (i in 1:19) {
-  fit = kmeans (select(df, 2:19), centers = 24)
-  wss = c(wss, fit$tot.withinss)
+# Decide how many clusters to look at
+n <- 25
+
+# Initialize total within sum of squares error: wss
+wss <- numeric(n_clusters)
+
+set.seed(123)
+
+# Look over 1 to n possible clusters
+for (i in 1:n) {
+  # Fit the model: km.out
+  km.out<- kmeans(df[2:19], centers = i, nstart = 200)
+  # Save the within cluster sum of squares
+  wss[i] <- km.out$tot.withinss
 }
-plot(1:19, wss, type= "o")  
 
-#fit <- kmeans(select(df, 2:19), 10)
-plotcluster(select(df,2:19), fit$cluster, pointsbyclvecd = FALSE)
+# Produce a scree plot
+wss_df <- tibble(clusters = 1:n, wss = wss)
 
+scree_plot <- ggplot(wss_df, aes(x = clusters, y = wss, group = 1)) +
+  geom_point(size = 4)+
+  geom_line() +
+  scale_x_continuous(breaks = c(2, 4, 6, 8, 10)) +
+  xlab('Number of clusters')
+scree_plot +
+  geom_hline(
+    yintercept = wss, 
+    linetype = 'dashed'
+  )
+scree_plot
 
-wss2 <- (nrow(df)-1)*sum(apply(df, 1, var))
-  for (i in 2:25) wss [i] <- sum(kmeans(select(df, 2:19), centers = i)$withinss)
-plot(wss2)
-
-library(RColorBrewer)
-
-cols <- c(brewer.pal(18, "Spectral"), brewer.pal(18, "BrBG"))
-
-#for (for i in 1:)
+km.out<- kmeans(df[2:19], centers = 5, nstart = 300)
+km.out

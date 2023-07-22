@@ -109,34 +109,20 @@ names(df) <- c("ADM2_EN", "Forest", "Bare", "Crop", "Herbaceous Vegetation",
                "Herbaceous Wetland", "Shrubs", "Urban", "Water", "Elevation",
                "Population", "Travel Time", "Cattle", "Chicken", "Ducks",
                "Goats", "Horses", "Pigs", "Sheep")
-library(mclust)
-fit<- Mclust(df)
-summary(fit)
-
-#WSS is the Sum distance within the centroids 
-#Since the K-means algorithm's goal is to keep the size of each cluster as small as possible, 
-#the small wss indicates that every data point is close to its nearest centroids, 
-#or say the model has returned good results from (https://towardsdatascience.com/k-means-clustering-in-r-feb4a4740aa)
-
-wss <- NULL
-#i Have to set seed
-set.seed(1)
-for (i in 1:19) {
-  fit = kmeans (select(df, 2:19), centers = 24)
-  wss = c(wss, fit$tot.withinss)
-}
-plot(1:19, wss, type= "o")  
-
-#fit <- kmeans(select(df, 2:19), 10)
-plotcluster(select(df,2:19), fit$cluster, pointsbyclvecd = FALSE)
 
 
-wss2 <- (nrow(df)-1)*sum(apply(df, 1, var))
-  for (i in 2:25) wss [i] <- sum(kmeans(select(df, 2:19), centers = i)$withinss)
-plot(wss2)
+BICMC <- mclustBIC(df[2:19])
+summary(BICMC)
+mod1 <- Mclust(df[2:19], modelNames = "EEV", G=4, x = BICMC)
+summary(mod1)
+ICLMC <- mclustICL(df[2:19])
 
-library(RColorBrewer)
+#f1 <- cbind(df$Forest, df$Bare, df$Crop, df$`Herbaceous Vegetation`, df$`Herbaceous Wetland`,
+#            df$Shrubs, df$Urban, df$Water, df$Elevation, df$Population, df$`Travel Time`,
+ #           df$Cattle, df$Chicken, df$Ducks, df$Goats, df$Horses, df$Pigs, df$Sheep) ~1
 
-cols <- c(brewer.pal(18, "Spectral"), brewer.pal(18, "BrBG"))
+#pol <- poLCA(f1, df[2:18], nclass =2, maxiter = 100, na.rm = FALSE)
 
-#for (for i in 1:)
+
+
+
