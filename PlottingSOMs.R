@@ -13,7 +13,6 @@ library(ggplot2)
 library(ggspatial)
 
 
-
 #read in the admin boundary
 adm2.sp <- st_read("Data/ken_admbnda_adm2_iebc_20191031.shp")
 
@@ -121,38 +120,46 @@ cluster_details <- data.frame(ADM2_EN=df$ADM2_EN,
 cluster_det_srt <- arrange(cluster_details,(cluster_details$ADM2_PCODE))
 spatialcluster <- merge (adm2.sp, cluster_det_srt, 
                          by.x= "ADM2_PCODE", by.y= "ADM2_EN")
+
+clusters <- data.frame(ADM2_EN = df$ADM2_EN, csv$cluster)
+clusters_srt <- arrange(clusters, (clusters$ADM2_EN))
+
 library(RColorBrewer)
+#library(viridis)
 
-cols <- c(brewer.pal(18, "Spectral"), brewer.pal(11, "BrBG"))
-#fuck it were creating a new df
-cluster <- merge(df_norm, cluster_details, by= 'ADM2_EN',all=FALSE)
-#now I need to extract all the clusters with one value
+cols <- c(brewer.pal(8, "Accent"), brewer.pal(12, "Set3"))
 
-#split df into smaller dfs
-singledf <- split(cluster, cluster$cluster)
+coloumns_to_norm <- 10:19
+df_norm <- df
+norm <- data.frame(apply(df_norm[coloumns_to_norm], 2,function(x)x/max(x)))
+df_final <- data.frame(df[1:9], norm)
 
-# Create a list to store the plots
+cluster<- merge(df_final, clusters, by= "ADM2_EN", all=TRUE)
+
+singledf <- split(cluster, cluster$csv.cluster)
+
 plot_list <- list()
 
-# Loop over the values of 'i'
+# For each cluster
 for (i in 1:25) {
-  # Subset the cluster data frame for the desired cluster
-  subset_df <- cluster[cluster$cluster == i, ]
   
-  # Filter the numeric columns for mean calculation
+  # Get the subset of the DataFrame for the specified cluster
+  subset_df <- cluster[cluster$csv.cluster == i, ]
+  
+  # Get the numeric columns
   numeric_cols <- sapply(subset_df, is.numeric)
+  
+  # Get the mean values of the numeric columns
   mean_values <- colMeans(subset_df[, numeric_cols])
   
-  # Create a data frame with variable and value columns
-  DF <- data.frame(variable = names(mean_values), value = mean_values)
-  DF[, 2] <- DF[, 2]
-  DF$variable <- factor(DF$variable, levels = as.character(DF$variable))
+  # Create a DataFrame with the variable names and mean values
+  DF <- data.frame(Variable= names(mean_values), value = mean_values)
   
-  # Create the plot
-  plot <- ggplot(DF, aes(variable, value, fill = variable)) +
+  # Plot the DataFrame
+  plot <- ggplot(DF, aes(Variable, value, fill = Variable)) +
     geom_bar(width = 1, stat = "identity", color = "white") +
     ylim(0, 1.005) +
-    scale_fill_manual(values = cols) +
+    scale_fill_manual(values=cols) +
     theme_gray() +
     theme(
       axis.ticks = element_blank(),
@@ -160,27 +167,22 @@ for (i in 1:25) {
       axis.title = element_blank(),
       axis.line = element_blank()
     ) +
-    labs(title = paste("Cluster",  i))
+    labs(title = paste("Cluster", i)) +
+    coord_polar()
   
-  
-  
-  nam <- paste('p', i, sep = '')
-  plot_list[[nam]] <- plot + coord_polar()
-}
-
-# Accessing the individual plots
-p1 <- plot_list$p1
-p2 <- plot_list$p2
-# and so on...
-
-# Print or further manipulate the individual plots as desired
-print(p1)
-print(p2)
-
-for (i in 1:25) {
   plot_name <- paste("p", i, sep = "")
   plot <- plot_list[[plot_name]]
   print(plot)
   ggsave(filename = paste0("Cluster", i, ".png", sep=""))
+  
 }
+
+
+
+
+
+
+
+
+
 
